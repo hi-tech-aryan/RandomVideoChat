@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="icon" href="data:,"> <!-- Prevents favicon.ico request -->
+    <title>Random Video Chat</title>
+    <style>
+        /* Main container */
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: 0px;
+            padding: 0px;
+            background: #f8f9fa;
+        }
+
+        /* Left Column (Partner Video + Buttons) */
+        .left-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Right Column (Your Video + Chat) */
+        .right-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Video containers */
+        .video-container {
+
+            border: 0px solid #dfe4ea;
+            margin-bottom: 10px;
+        }
+
+        video {
+            background-color: rgb(84, 84, 84);
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Your video styling */
+        #localVideo {
+            transform: scaleX(-1); /* Mirror flip */
+        }
+
+        /* Buttons container */
+        .button-container {
+            display: flex;
+            gap: 50px;
+            padding: 15px;
+            /* background: white; */
+            /* border: 2px solid #dfe4ea; */
+        }
+
+        /* Chat container */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border: 2px solid #dfe4ea;
+        }
+
+        /* Chat messages area */
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        /* Chat input container */
+        .chat-input {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            border-top: 2px solid #dfe4ea;
+            background: white;
+        }
+        /* Text input field */
+        .message-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dfe4ea;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        /* Emoji picker button */
+        .emoji-btn {
+            padding: 12px;
+            border: none;
+            background: #f1f2f6;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .emoji-btn:hover {
+            background: #dfe4ea;
+        }
+        /* Send message button */
+        .send-btn {
+            padding: 12px 24px;
+            border: none;
+            background: #2ed573;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .send-btn:hover {
+            background: #25b35e;
+        }
+        
+
+        /* Buttons styling */
+        button {
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            border-radius: 11px;
+        }
+
+        #startButton {
+            background: #2ed573;
+            color: white;
+            height: 150px;
+            width: 150px;
+        }
+        #startButton:button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 0; /* Rectangular shape */
+            cursor: pointer;
+            font-size: 50px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        #stopButton {
+            background: #ff4757;
+            color: white;
+            height: 150px;
+            width: 150px;
+        }
+        #stopButton:button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 0; /* Rectangular shape */
+            cursor: pointer;
+            font-size: 50px;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+        /* Hover effects */
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        /* Mirror local and remote video */
+        #localVideo {
+                transform: scaleX(-1); /* Lateral inversion */
+        }
+        #remoteVideo {
+            transform: scaleX(-1); /* Lateral inversion */
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .video-container {
+                height: 50vh;
+            }
+            .chat-input {
+                padding: 10px;
+            }
+            .message-input {
+                padding: 10px;
+            }
+            .send-btn {
+                padding: 10px 20px;
+            }
+        }
+    </style>
+</head>
+<body style="margin: 0px; padding: 0px;">
+    <!-- <h1>Random Video Chat</h1> -->
+    <div class="container">
+        <!-- Left Column -->
+        <div class="left-column">
+          <div class="video-container" style="height: 75%;">
+            <video id="remoteVideo" autoplay playsinline></video>
+          </div>
+          <div class="button-container">
+            <button id="startButton" onclick="startChat()" style="font-size: x-large;">START</button>
+            <button id="stopButton" onclick="stopChat()" style="font-size: x-large;">STOP</button>
+          </div>
+        </div>
+    
+        <!-- Right Column -->
+        <div class="right-column">
+          <div class="video-container" style="height: 75%;">
+            <video id="localVideo" autoplay muted playsinline></video>
+          </div>
+          <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+              <!-- Messages will appear here -->
+            </div>
+            <div class="chat-input">
+              <button class="emoji-btn" onclick="toggleEmojiPicker()">😀</button>
+              <input type="text" class="message-input" id="messageInput" 
+                     placeholder="Type your message..." 
+                     onkeypress="handleEnterKey(event)">
+              <button class="send-btn" onclick="sendMessage()">Send</button>
+            </div>
+          </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io('http://localhost:3000');
+        let peerConnection = null;
+        let currentPartnerId = null;
+        let localStream = null; // Explicit initialization
+        let messages = []; // Stores chat history
+        let partnerId = null; // Track partner's socket ID
+
+        async function init() {
+            try {
+                // Handle browser prefixes (Safari/older browsers)
+                const mediaDevices = navigator.mediaDevices || navigator.webkitMediaDevices;
+                if (!mediaDevices || !mediaDevices.getUserMedia) {
+                throw new Error("Browser doesn't support camera/mic access");
+                }
+
+                localStream = await mediaDevices.getUserMedia({ 
+                    video: true, 
+                    audio: true 
+                });
+                document.getElementById('localVideo').srcObject = localStream;
+            } catch (error) {
+                alert("Error accessing camera/mic: " + error.message);
+                throw error;
+            }
+        }
+
+        async function startChat() {
+            try {
+                await init(); // <-- Called here after user clicks
+                socket.emit('find-partner');
+            } catch (error) {
+                console.error("Start chat failed:", error);
+            }
+        }
+        // Function to display messages
+        function displayMessage(message, isLocalUser = true) {
+            const chatBox = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+    
+            messageDiv.className = isLocalUser ? 'message local' : 'message remote';
+            messageDiv.innerHTML = `
+                <div class="message-content">${message}</div>
+                <div class="message-sender">${isLocalUser ? 'You' : 'Partner'}</div>
+            `;
+    
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+        }
+
+        socket.on('partner-found', ({ partnerId }) => {
+            currentPartnerId = partnerId;
+            setupPeerConnection(partnerId);
+        });
+
+        function setupPeerConnection(partnerId) {
+            peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+            console.log('🔌 Setting up peer connection with partner:', partnerId);
+
+            peerConnection.ontrack = (event) => {
+                console.log('📥 Received remote stream');
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('📤 Sending ICE candidate:', event.candidate);
+                    socket.emit('signal', { partnerId, signal: { candidate: event.candidate } });
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log("ICE Connection State:", peerConnection.iceConnectionState);
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                console.log("Connection State:", peerConnection.connectionState);
+            };
+
+            peerConnection.createOffer()
+                .then(offer => peerConnection.setLocalDescription(offer))
+                .then(() => {
+                    socket.emit('signal', { partnerId, signal: peerConnection.localDescription });
+                })
+                .catch(error => console.error("Offer error:", error));
+        }
+
+        socket.on('signal', async ({ signal, senderId }) => {
+            try {
+                if (!peerConnection) setupPeerConnection(senderId);
+
+                if (signal.candidate) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                } else if (signal.type === 'offer') {
+                // Handle offers only if in "stable" state
+                    if (peerConnection.signalingState !== 'stable') {
+                        console.warn('Cannot handle offer in non-stable state:', peerConnection.signalingState);
+                        return;
+                    }
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    socket.emit('signal', { partnerId: senderId, signal: peerConnection.localDescription });
+                } else if (signal.type === 'answer') {
+                    // Handle answers only if in "have-local-offer" state
+                    if (peerConnection.signalingState !== 'have-local-offer') {
+                        console.warn('Cannot handle answer in state:', peerConnection.signalingState);
+                        return;
+                    }
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                }
+            } catch (error) {
+                console.error("Signal error:", error);
+            }
+        });
+        // Handle incoming messages (add this to Socket.io listeners)
+        socket.on('chat-message', (data) => {
+            displayMessage(data.message, false);
+        });
+
+        function stopChat() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+                document.getElementById('remoteVideo').srcObject = null;
+            }
+        }
+        // Basic functionality
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+    
+            if (message && partnerId) {
+                // Display locally
+                displayMessage(message, true);
+      
+                // Send to partner via WebRTC data channel or Socket.io
+                // For Socket.io (recommended):
+                socket.emit('chat-message', {
+                    partnerId: partnerId,
+                    message: message
+                });
+
+                input.value = '';
+            }
+        }
+
+        function handleEnterKey(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        function toggleEmojiPicker() {
+            // Add emoji picker implementation
+            document.getElementById('messageInput').focus();
+            // Note: For full emoji picker, use a library like Emoji-Mart
+        }
+        
+    </script>
+</body>
+</html>
